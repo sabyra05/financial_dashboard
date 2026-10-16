@@ -11,6 +11,15 @@ class Settings(BaseSettings):
 
     SQLALCHEMY_DATABASE_URL: str
 
+    INFLUXDB_ADMIN_TOKEN: str
+
+    INFLUXDB_ADMIN_TOKEN: str
+    INFLUXDB_WRITE_TOKEN: str
+    INFLUXDB_READ_TOKEN: str
+    INFLUXDB_BUCKET: str
+    INFLUXDB_ORGANIZATION: str
+    INFLUXDB_URL: str
+
     model_config = SettingsConfigDict(env_file=ENV_FILE_PATH, env_file_encoding="utf-8")
 
 settings = Settings()
