@@ -1,135 +1,168 @@
 import asyncio
-import signal
+from asyncio import Queue, Event, Task
+from typing import List, Optional
+
 import pandas as pd
-from typing import Set, List
 
-from db.relational_db import SessionLocal
 from db import models
-from db.ts_db import write_client
-from services.exchanges import BinanceExchange
-
-queue: asyncio.Queue = asyncio.Queue()
-stop_event: asyncio.Event = asyncio.Event()
-
-adapters = [
-    BinanceExchange(queue=queue, stop_event=stop_event)
-]
-subscribed_tickers: Set[str] = set()
+from db.relational_db import SessionLocal
+from db.ts_db import write_client, TickerTSModel
+from services.exchanges import EXCHANGE_CLASSES
+from services.exchanges.base import Ticker
 
 
-def fetch_active_tickers_from_sql() -> Set[str]:
-    db = SessionLocal()
-    try:
-        tickers = db.query(models.Ticker.symbol).filter(models.Ticker.is_active == True).all()
-        return {t.symbol for t in tickers}
-    finally:
-        db.close()
+class MainWorker:
 
+    def __init__(self):
+        self.subscribed_tickers: set = set()
+        self.tickers_to_unsubscribe: set = set()
+        self.tickers_to_subscribe: set = set()
+        self.batch: list = list()
 
-async def ticker_sync_loop():
-    global subscribed_tickers
+        self.adapters: list
 
-    while not stop_event.is_set():
-        try:
-            db_tickers = fetch_active_tickers_from_sql()
-            new_tickers = db_tickers - subscribed_tickers
+        self.queue: Queue = Queue(maxsize=5000)
+        self.stop_event: Event = Event()
+        self.tasks: List[Task] = []
 
-            if new_tickers:
-                print(f"[Worker] New Tickers in SQL DB are found! \n {new_tickers}")
-                for adapter in adapters:
-                    await adapter.subscribe(list(new_tickers))
-                subscribed_tickers.update(new_tickers)
+        self.adapters = [i(self.queue, self.stop_event) for i in EXCHANGE_CLASSES]
 
-        except Exception as e:
-            print(f"[Worker] Tickers could not be synchronized \n {repr(e)}")
-
-        try:
-            await asyncio.wait_for(stop_event.wait(), timeout=60.0)
-        except asyncio.TimeoutError:
-            pass
-
-
-async def data_consumer_loop():
-    while not stop_event.is_set():
-        batch_items: List[dict] = []
-
-        while not queue.empty():
+    def _db_query(self) -> Optional[set]:
+        with SessionLocal() as db:
             try:
-                ticker = queue.get_nowait()
+                tickers = db.query(models.Ticker).filter(models.Ticker.is_active == True).all()
+                return set(tickers)
+            except Exception as e:
+                self.pretty_print(f'{repr(e)}')
 
-                ticker_dict = ticker.model_dump() if hasattr(ticker, "model_dump") else ticker.dict()
-                batch_items.append(ticker_dict)
-                queue.task_done()
-            except asyncio.QueueEmpty:
-                break
+    async def get_active_tickers(self) -> Optional[set]:
+        try:
+            return await asyncio.to_thread(self._db_query)
+        except Exception as e:
+            self.pretty_print(f'{repr(e)} occurred in get_active_tickers')
 
-        if batch_items:
+    async def ticker_sync_loop(self):
+        """
+        TODO: add functionality to unsubscribe
+        """
+        while not self.stop_event.is_set():
+            try:
+                tickers_from_db = await self.get_active_tickers()
+                ticker_symbols_from_db = set([i.symbol for i in tickers_from_db])
 
-            df = pd.DataFrame(batch_items)
+                self.tickers_to_unsubscribe = self.subscribed_tickers - ticker_symbols_from_db
+                self.tickers_to_subscribe = ticker_symbols_from_db - self.subscribed_tickers
 
-            # aggregated_df = df.groupby('symbol').agg({
-            #     'price': 'mean',
-            #     'qty': 'sum'
-            # }).reset_index()
+                if self.tickers_to_subscribe:
+                    for adapter in self.adapters:
+                        await adapter.subscribe(list(self.tickers_to_subscribe))
 
-            for row in df.itertuples():
-                write_client.batch_append(
-                    symbol=row.symbol,
-                    exchange=getattr(row, "exchange", "binance"),
-                    price=float(row.price)
+                self.subscribed_tickers = ticker_symbols_from_db
+
+                    # if self.tickers_to_unsubscribe:
+                    # ...
+
+            except Exception as e:
+                self.pretty_print(f'{repr(e)} occurred in ticker_sync_loop')
+
+            try:
+                await asyncio.wait_for(self.stop_event.wait(), timeout=60)
+            except asyncio.TimeoutError:
+                pass
+
+    async def connect(self):
+        for i in self.adapters:
+            try:
+                self.pretty_print(f'Connection in {i.name} is initializing')
+                await i.connect()
+                self.pretty_print(f'Connection in {i.name} is initialized successfully!')
+            except Exception as e:
+                self.pretty_print(f'{repr(e)} occurred in connect with {i.name}')
+
+    async def subscribe(self):
+        for i in self.adapters:
+            try:
+                self.pretty_print(f'Subscription in {i.name} is initializing')
+                await i.subscribe(self.tickers_to_subscribe)
+                self.pretty_print(f'Subscription in {i.name} is initialized successfully!')
+            except Exception as e:
+                self.pretty_print(f'{repr(e)} occurred in connect with {i.name}')
+
+    async def parse_save_data_tsdb(self):
+        while not self.stop_event.is_set():
+            while not self.queue.empty():
+                queue_item: Ticker = self.queue.get_nowait()
+                self.batch.append(
+                    {
+                        'exchange': queue_item.exchange,
+                        'symbol': queue_item.symbol,
+                        'qty': queue_item.qty,
+                        'price': queue_item.price,
+                    }
                 )
 
-            await write_client.write_batch_data()
+            if self.batch:
+                temp_df = pd.DataFrame(self.batch)
 
-        try:
-            await asyncio.wait_for(stop_event.wait(), timeout=1.0)
-        except asyncio.TimeoutError:
-            pass
+                temp_df['quantity'] = temp_df['qty'].astype(float)
+                temp_df['price'] = temp_df['price'].astype(float)
+                temp_df['total_price'] = temp_df['price'] * temp_df['quantity']
+
+                self.pretty_print(f'The Batch of [{len(self.batch)}] transactions is processed.')
+
+                res = temp_df.groupby(['exchange', 'symbol']).agg(
+                    amount=('price', 'count'),
+                    total_qty=('quantity', 'sum'),
+                    min_price=('price', 'min'),
+                    max_price=('price', 'max'),
+                    avg_price=('price', 'mean'),
+                    min_total_price=('total_price', 'min'),
+                    max_total_price=('total_price', 'max'),
+                    avg_total_price=('total_price', 'mean'),
+                )
+
+                res = res.reset_index()
+
+                records = res.to_dict(orient='records')
+                validated_records = [TickerTSModel(**i) for i in records]
+
+                for i in validated_records:
+                    write_client.batch_append(i)
+
+                await write_client.write_batch_data()
+
+                self.batch.clear()
+            try:
+                await asyncio.wait_for(self.stop_event.wait(), timeout=1.0)
+            except asyncio.TimeoutError:
+                pass
+
+    async def start(self):
+        await self.connect()
+
+        for i in self.adapters:
+            self.tasks.append(
+                asyncio.create_task(i.listen())
+            )
+
+        self.tasks.append(
+            asyncio.create_task(self.ticker_sync_loop())
+        )
+
+        self.tasks.append(
+            asyncio.create_task(self.parse_save_data_tsdb())
+        )
+
+        await self.stop_event.wait()
+
+    def pretty_print(self, msg: str):
+        print(f'[Main Worker] {msg}')
 
 
 async def main():
-    global subscribed_tickers
-    print("[Worker] Starting collecting data")
-
-    subscribed_tickers = fetch_active_tickers_from_sql()
-
-    for adapter in adapters:
-        await adapter.connect()
-        if subscribed_tickers:
-            await adapter.subscribe(list(subscribed_tickers))
-
-    tasks = []
-
-    for adapter in adapters:
-        tasks.append(asyncio.create_task(adapter.listen()))
-
-    tasks.append(asyncio.create_task(ticker_sync_loop()))
-    tasks.append(asyncio.create_task(data_consumer_loop()))
-
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, stop_event.set)
-        except NotImplementedError:
-            pass
-
-    print("[Worker] All listeners are successfully started!")
-
-    await stop_event.wait()
-
-    print("[Worker] Finishing work...")
-
-    for task in tasks:
-        task.cancel()
-
-    await asyncio.gather(*tasks, return_exceptions=True)
-
-    for adapter in adapters:
-        await adapter.disconnect()
-    await write_client.close()
-
-    print("[Worker] Work is finished")
+    worker = MainWorker()
+    await worker.start()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())

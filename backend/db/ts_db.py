@@ -2,9 +2,22 @@ from typing import Optional, List
 
 from influxdb_client import Point
 from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
+from pydantic import BaseModel
 
 from core.settings import settings
 
+
+class TickerTSModel(BaseModel):
+    symbol: str
+    exchange: str
+    amount: int
+    total_qty: float
+    min_price: float
+    max_price: float
+    avg_price: float
+    min_total_price: float
+    max_total_price: float
+    avg_total_price: float
 
 class InfluxBaseClient:
     def __init__(self):
@@ -33,24 +46,35 @@ class InfluxWriteClient(InfluxBaseClient):
             self.client = InfluxDBClientAsync(url=self.url, token=self.token, org=self.org)
             self.write_api = self.client.write_api()
 
-    def batch_append(self, symbol: str, exchange: str, price: float):
-        self.batch.append(
+    def create_point(self, ticker_data: TickerTSModel) -> Point:
+        point = (
             Point('tickers')
-            .tag('symbol', symbol.upper())
-            .tag('exchange', exchange.lower())
-            .field('price', float(price))
+            .tag('symbol', ticker_data.symbol.upper())
+            .tag('exchange', ticker_data.exchange.lower())
+            .field('amount', float(ticker_data.amount))
+            .field('total_qty', float(ticker_data.total_qty))
+            .field('min_price', float(ticker_data.min_price))
+            .field('max_price', float(ticker_data.max_price))
+            .field('avg_price', float(ticker_data.avg_price))
+            .field('min_total_price', float(ticker_data.min_total_price))
+            .field('max_total_price', float(ticker_data.max_total_price))
+            .field('avg_total_price', float(ticker_data.avg_total_price))
         )
+        return point
 
-    async def write_single_data(self, symbol: str, exchange: str, price: float):
+    def batch_append(self, ticker_data: TickerTSModel):
+        try:
+            self.batch.append(
+                self.create_point(ticker_data)
+            )
+        except Exception as e:
+            print(f'{repr(e)} occurred in batch_append')
+
+    async def write_single_data(self, ticker_data: TickerTSModel):
         if self.client is None:
             await self.connect()
 
-        point = (
-            Point('tickers')
-            .tag('symbol', symbol.upper())
-            .tag('exchange', exchange.lower())
-            .field('price', float(price))
-        )
+        point = self.create_point(ticker_data)
 
         await self.write_api.write(bucket=self.bucket, record=point)
 
