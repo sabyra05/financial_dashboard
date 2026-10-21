@@ -8,7 +8,7 @@ from starlette import status
 
 from core.security import create_access_token, get_password_hash, verify_password
 from db import models
-from db.relational_db import get_db
+from db.relational_db import get_sync_db
 
 
 class UserCreate(BaseModel):
@@ -23,7 +23,7 @@ async def ping():
     return 'pong'
 
 @auth_router.post('/registrate')
-async def registrate(user_data: UserCreate, db: Session = Depends(get_db)):
+async def registrate(user_data: UserCreate, db: Session = Depends(get_sync_db)):
     username = user_data.username
     password = user_data.password
     role = user_data.role
@@ -51,7 +51,7 @@ async def registrate(user_data: UserCreate, db: Session = Depends(get_db)):
 
 # noinspection PyTypeChecker
 @auth_router.post('/login')
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_sync_db)):
     username = form_data.username
     password = form_data.password
 

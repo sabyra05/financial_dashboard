@@ -7,7 +7,7 @@ from starlette import status
 
 from api.dependencies import verify_admin, get_current_user
 from db import models
-from db.relational_db import get_db
+from db.relational_db import get_sync_db
 
 
 class TickerCreate(BaseModel):
@@ -40,7 +40,7 @@ tickers_router = APIRouter()
 async def create(
         ticker_data: TickerCreate,
         token: str = Depends(verify_admin),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_sync_db)
 ):
     symbol = ticker_data.symbol
     name = ticker_data.name
@@ -62,7 +62,7 @@ async def create(
 @tickers_router.get('/list')
 async def list_t(
         token: str = Depends(get_current_user),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_sync_db)
 ):
     tickers = db.query(models.Ticker).all()
     return {'status': 'success', 'tickers': tickers}
@@ -72,7 +72,7 @@ async def list_t(
 async def delete(
         symbol: str,
         token: str = Depends(verify_admin),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_sync_db)
 ):
     symbol = symbol.strip().upper()
     ticker = db.query(models.Ticker).filter(models.Ticker.symbol == symbol).first()
@@ -93,7 +93,7 @@ async def delete(
 async def recieve(
         symbol: str,
         token: str = Depends(get_current_user),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_sync_db)
 ):
     symbol = symbol.strip().upper()
     ticker = db.query(models.Ticker).filter(models.Ticker.symbol == symbol).first()
@@ -112,7 +112,7 @@ async def update(
         data: TickerUpdate,
         symbol: str,
         token: str = Depends(verify_admin),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_sync_db)
 ):
     symbol = symbol.strip().upper()
     ticker = db.query(models.Ticker).filter(models.Ticker.symbol == symbol).first()

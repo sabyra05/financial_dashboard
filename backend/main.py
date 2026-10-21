@@ -6,11 +6,11 @@ from fastapi import FastAPI
 from api.auth import auth_router
 from api.tickers_rest import tickers_router
 from db import models
-from db.relational_db import engine
+from db.relational_db import sync_engine
 # from db.ts_db import tickers_db
 
 
-models.Base.metadata.create_all(bind=engine)
+models.Base.metadata.create_all(bind=sync_engine)
 
 
 @asynccontextmanager

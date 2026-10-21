@@ -3,12 +3,13 @@ from asyncio import Queue, Event, Task
 from typing import List, Optional
 
 import pandas as pd
+from sqlalchemy import select
 
 from db import models
-from db.relational_db import SessionLocal
+from db.relational_db import SyncSessionLocal, AsyncSessionLocal
 from db.ts_db import write_client, TickerTSModel
 from services.exchanges import EXCHANGE_CLASSES
-from services.exchanges.base import Ticker
+from db.models import Ticker
 
 
 class MainWorker:
@@ -27,19 +28,18 @@ class MainWorker:
 
         self.adapters = [i(self.queue, self.stop_event) for i in EXCHANGE_CLASSES]
 
-    def _db_query(self) -> Optional[set]:
-        with SessionLocal() as db:
-            try:
-                tickers = db.query(models.Ticker).filter(models.Ticker.is_active == True).all()
-                return set(tickers)
-            except Exception as e:
-                self.pretty_print(f'{repr(e)}')
 
     async def get_active_tickers(self) -> Optional[set]:
-        try:
-            return await asyncio.to_thread(self._db_query)
-        except Exception as e:
-            self.pretty_print(f'{repr(e)} occurred in get_active_tickers')
+        async with AsyncSessionLocal() as session:
+            try:
+                stmt = select(Ticker.symbol).where(Ticker.is_active == True)
+                result = await session.execute(stmt)
+
+                tickers = set(result.scalars().all())
+                return tickers
+            except Exception as e:
+                self.pretty_print(f'{repr(e)} occurred in get_active_tickers')
+                return self.subscribed_tickers
 
     async def ticker_sync_loop(self):
         """
@@ -48,7 +48,7 @@ class MainWorker:
         while not self.stop_event.is_set():
             try:
                 tickers_from_db = await self.get_active_tickers()
-                ticker_symbols_from_db = set([i.symbol for i in tickers_from_db])
+                ticker_symbols_from_db = set([i for i in tickers_from_db])
 
                 self.tickers_to_unsubscribe = self.subscribed_tickers - ticker_symbols_from_db
                 self.tickers_to_subscribe = ticker_symbols_from_db - self.subscribed_tickers

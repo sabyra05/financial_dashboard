@@ -2,7 +2,9 @@ import bcrypt
 import jwt
 from datetime import datetime, timedelta, timezone
 
+from fastapi import HTTPException
 from passlib.context import CryptContext
+from starlette import status
 
 from core.settings import settings
 
@@ -30,9 +32,9 @@ def verify_access_token(token: str):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
-        raise ValueError("Token has expired")
+        raise HTTPException(detail="Token has expired", status_code=status.HTTP_401_UNAUTHORIZED)
     except jwt.InvalidTokenError:
-        raise ValueError("Invalid token")
+        raise HTTPException(detail="Invalid token", status_code=status.HTTP_401_UNAUTHORIZED)
 
 
 def get_password_hash(password: str) -> str:
@@ -46,10 +48,3 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     hashed_password_bytes = hashed_password.encode('utf-8')
 
     return bcrypt.checkpw(plain_password_bytes, hashed_password_bytes)
-
-
-# token = create_access_token({'username': 'aman', 'role': 'admin'})
-# print(token)
-#
-# res = verify_access_token(token)
-# print(res)

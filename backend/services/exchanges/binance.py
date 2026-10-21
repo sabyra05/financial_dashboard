@@ -16,6 +16,7 @@ class BinanceExchange(BaseExchange):
     def __init__(self, queue: Optional[Queue] = None, stop_event: Optional[Event] = None):
         super().__init__(queue, stop_event)
         self.available_tickers = None
+        self.active_subscriptions: set = set()
         self.tickers_info_url = 'https://data-api.binance.vision/api/v3/ticker/price'
         self.url = 'wss://stream.binance.com:9443/ws'
         self.name = 'Binance'
@@ -42,6 +43,8 @@ class BinanceExchange(BaseExchange):
                 return data
 
     async def filter_valid_tickers(self, new_tickers: List[str] = None) -> Optional[set[str]]:
+        if not new_tickers:
+            return set()
 
         if self.available_tickers:
             requested_upper = {t.upper() for t in new_tickers}
@@ -72,8 +75,9 @@ class BinanceExchange(BaseExchange):
                 self.ws: ClientConnection = await asyncio.wait_for(websockets.connect(self.url), timeout=5)
                 self.pretty_print('Connection initialized successfully!')
                 return None
-            except TimeoutError:
-                self.pretty_print('Connection is failed. Reestablishing connection...')
+            except Exception as e:
+                self.pretty_print(f'Connection failed: {repr(e)}. Reestablishing connection...')
+                await asyncio.sleep(2)
 
     async def disconnect(self) -> None:
         try:
@@ -84,6 +88,11 @@ class BinanceExchange(BaseExchange):
 
     async def subscribe(self, new_tickers: List[str] = None) -> None:
         new_tickers = await self.filter_valid_tickers(new_tickers)
+
+        if not new_tickers:
+            self.pretty_print('No valid tickers to subscribe.')
+            return None
+
         msg: dict = {
           "method": "SUBSCRIBE",
           "params": [],
@@ -91,6 +100,7 @@ class BinanceExchange(BaseExchange):
         }
 
         if new_tickers:
+            self.active_subscriptions.update(new_tickers)
             for i in new_tickers:
                 msg.get('params').append(f'{i.lower()}@trade')
 
@@ -106,8 +116,7 @@ class BinanceExchange(BaseExchange):
         connecting_attempts: int = 0
         while not self.stop_event.is_set():
             if connecting_attempts == 5:
-                await asyncio.sleep( 4 ** connecting_attempts )
-                self.pretty_print('Exchange is not answering 6 times. Connections is closed')
+                self.pretty_print('Exchange is not answering 5 times. Connections is closed')
                 break
             while not self.stop_event.is_set():
                 try:
@@ -115,10 +124,15 @@ class BinanceExchange(BaseExchange):
                     parsed_ticker = self.parse_response_data( json.loads(response) )
                     if parsed_ticker is not None:
                         await self.queue.put(parsed_ticker)
+                        connecting_attempts = 0
                 except ConnectionClosed:
                     self.pretty_print('Connection is closed. Reestablishing connection...')
                     await self.connect()
                     connecting_attempts += 1
+
+                    if self.active_subscriptions:
+                        self.pretty_print('Restoring subscriptions after reconnect...')
+                        await self.subscribe(list(self.active_subscriptions))
                     break
 
 

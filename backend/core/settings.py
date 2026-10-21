@@ -11,7 +11,11 @@ class Settings(BaseSettings):
 
     SQLALCHEMY_DATABASE_URL: str
 
-    INFLUXDB_ADMIN_TOKEN: str
+    POSTGRES_HOST: str
+    POSTGRES_PORT: str
+    POSTGRES_DB: str
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
 
     INFLUXDB_ADMIN_TOKEN: str
     INFLUXDB_WRITE_TOKEN: str
