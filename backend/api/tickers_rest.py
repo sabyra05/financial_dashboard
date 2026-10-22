@@ -2,12 +2,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy.orm import Session
+from sqlalchemy import select, insert, update
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
 from api.dependencies import verify_admin, get_current_user
-from db import models
-from db.relational_db import get_sync_db
+from db.models import Ticker
+from db.relational_db import get_async_db
 
 
 class TickerCreate(BaseModel):
@@ -33,6 +34,23 @@ class TickerUpdate(BaseModel):
         return value
 
 
+class TickerResponse(BaseModel):
+    id: int
+    symbol: str
+    name: str
+    is_active: bool
+
+
+async def get_ticker(db_session: AsyncSession, symbol: str) -> Optional[Ticker]:
+    symbol = symbol.strip().upper()
+
+    stmt = select(Ticker).where(Ticker.symbol == symbol)
+    result = await db_session.execute(stmt)
+
+    ticker: Optional[Ticker] = result.scalar_one_or_none()
+
+    return ticker
+
 tickers_router = APIRouter()
 
 
@@ -40,31 +58,45 @@ tickers_router = APIRouter()
 async def create(
         ticker_data: TickerCreate,
         token: str = Depends(verify_admin),
-        db: Session = Depends(get_sync_db)
+        db_session: AsyncSession = Depends(get_async_db)
 ):
     symbol = ticker_data.symbol
     name = ticker_data.name
-    if db.query(models.Ticker).filter(models.Ticker.symbol == symbol).first():
+
+    ticker = await get_ticker(db_session, symbol)
+
+    if ticker:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail='This ticker already exists'
         )
 
-    new_ticker = models.Ticker(symbol=symbol, name=name)
+    stmt = (
+        insert(Ticker)
+        .values(symbol=symbol, name=name, is_active=True)
+        .returning(Ticker)
+    )
 
-    db.add(new_ticker)
-    db.commit()
-    db.refresh(new_ticker)
+    result = await db_session.execute(stmt)
+    created_ticker = result.scalar_one()
 
-    return {'status': 'success', 'ticker': new_ticker}
+    response = TickerResponse(**created_ticker.__dict__)
+
+    await db_session.commit()
+
+    return {'status': 'success', 'ticker': response}
 
 
 @tickers_router.get('/list')
 async def list_t(
         token: str = Depends(get_current_user),
-        db: Session = Depends(get_sync_db)
+        db_session: AsyncSession = Depends(get_async_db)
 ):
-    tickers = db.query(models.Ticker).all()
+    stmt = select(Ticker)
+    result = await db_session.execute(stmt)
+
+    tickers = result.scalars().all()
+
     return {'status': 'success', 'tickers': tickers}
 
 
@@ -72,10 +104,9 @@ async def list_t(
 async def delete(
         symbol: str,
         token: str = Depends(verify_admin),
-        db: Session = Depends(get_sync_db)
+        db_session: AsyncSession = Depends(get_async_db)
 ):
-    symbol = symbol.strip().upper()
-    ticker = db.query(models.Ticker).filter(models.Ticker.symbol == symbol).first()
+    ticker = await get_ticker(db_session, symbol)
 
     if not ticker:
         raise HTTPException(
@@ -83,8 +114,9 @@ async def delete(
             detail='This ticker doesnt exist'
         )
 
-    db.delete(ticker)
-    db.commit()
+    ticker.is_active = False
+
+    await db_session.commit()
 
     return {'status': 'success'}
 
@@ -93,10 +125,9 @@ async def delete(
 async def recieve(
         symbol: str,
         token: str = Depends(get_current_user),
-        db: Session = Depends(get_sync_db)
+        db_session: AsyncSession = Depends(get_async_db)
 ):
-    symbol = symbol.strip().upper()
-    ticker = db.query(models.Ticker).filter(models.Ticker.symbol == symbol).first()
+    ticker = await get_ticker(db_session, symbol)
 
     if not ticker:
         raise HTTPException(
@@ -104,7 +135,9 @@ async def recieve(
             detail='This ticker doesnt exist'
         )
 
-    return {'status': 'success', 'ticker': ticker}
+    response = TickerResponse(**ticker.__dict__)
+
+    return {'status': 'success', 'ticker': response}
 
 
 @tickers_router.patch('/{symbol}')
@@ -112,10 +145,9 @@ async def update(
         data: TickerUpdate,
         symbol: str,
         token: str = Depends(verify_admin),
-        db: Session = Depends(get_sync_db)
+        db_session: AsyncSession = Depends(get_async_db)
 ):
-    symbol = symbol.strip().upper()
-    ticker = db.query(models.Ticker).filter(models.Ticker.symbol == symbol).first()
+    ticker = await get_ticker(db_session, symbol)
 
     if not ticker:
         raise HTTPException(
@@ -128,7 +160,8 @@ async def update(
     for key, value in update_data.items():
         setattr(ticker, key, value)
 
-    db.commit()
-    db.refresh(ticker)
+    await db_session.commit()
 
-    return {'status': 'success', 'ticker': ticker}
+    response = TickerResponse(**ticker.__dict__)
+
+    return {'status': 'success', 'ticker': response}

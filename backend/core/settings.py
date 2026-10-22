@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     INFLUXDB_BUCKET: str
     INFLUXDB_ORGANIZATION: str
     INFLUXDB_URL: str
+    INFLUXDB_ADMIN: str
+    INFLUXDB_ADMIN_PASSWORD: str
 
     model_config = SettingsConfigDict(env_file=ENV_FILE_PATH, env_file_encoding="utf-8")
 

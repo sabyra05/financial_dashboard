@@ -3,12 +3,13 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
-from sqlalchemy.orm.session import Session
+from sqlalchemy import select, insert
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
 from core.security import create_access_token, get_password_hash, verify_password
-from db import models
-from db.relational_db import get_sync_db
+from db.models import User
+from db.relational_db import get_async_db
 
 
 class UserCreate(BaseModel):
@@ -16,19 +17,33 @@ class UserCreate(BaseModel):
     role: Literal['admin', 'user'] = Field(default='user', description='User role')
     password: str = Field(..., min_length=3, description='Password has to be at least 3 symbols long')
 
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    role: Literal['admin', 'user']
+
+
 auth_router = APIRouter()
+
 
 @auth_router.get('/ping')
 async def ping():
     return 'pong'
 
+
 @auth_router.post('/registrate')
-async def registrate(user_data: UserCreate, db: Session = Depends(get_sync_db)):
+async def registrate(user_data: UserCreate, db_session: AsyncSession = Depends(get_async_db)):
     username = user_data.username
     password = user_data.password
     role = user_data.role
 
-    if db.query(models.User).filter(models.User.username == username).first():
+    stmt = select(User).where(User.username == username)
+    result = await db_session.execute(stmt)
+
+    user = result.scalars().first()
+
+    if user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='User with this username already exists'
@@ -36,26 +51,30 @@ async def registrate(user_data: UserCreate, db: Session = Depends(get_sync_db)):
 
     hashed_password = get_password_hash(password)
 
-    new_user = models.User(
-        username = username,
-        role = role,
-        hashed_password=hashed_password
+    stmt = (
+        insert(User)
+        .values(username=username, role=role, hashed_password=hashed_password)
+        .returning(User)
     )
 
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    result = await db_session.execute(stmt)
+    created_user = result.scalar_one()
 
-    return {'status': 'User was successfully created', 'user_id': new_user.id}
+    response = UserResponse(**created_user.__dict__)
+
+    await db_session.commit()
+
+    return {'status': 'success', 'user': response}
 
 
-# noinspection PyTypeChecker
 @auth_router.post('/login')
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_sync_db)):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db_session: AsyncSession = Depends(get_async_db)):
     username = form_data.username
     password = form_data.password
 
-    user: models.User = db.query(models.User).filter(models.User.username == username).first()
+    stmt = select(User).where(User.username == username)
+    result = await db_session.execute(stmt)
+    user: User = result.scalars().first()
 
     if not user:
         return HTTPException(
@@ -78,4 +97,3 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     )
 
     return {'status': 'success', 'token': token}
-
