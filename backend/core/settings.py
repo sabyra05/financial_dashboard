@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     INFLUXDB_ADMIN: str
     INFLUXDB_ADMIN_PASSWORD: str
 
+    REDIS_URL: str
+
     model_config = SettingsConfigDict(env_file=ENV_FILE_PATH, env_file_encoding="utf-8")
 
 settings = Settings()

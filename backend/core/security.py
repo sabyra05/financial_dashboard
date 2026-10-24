@@ -2,7 +2,7 @@ import bcrypt
 import jwt
 from datetime import datetime, timedelta, timezone
 
-from fastapi import HTTPException
+from fastapi import HTTPException, WebSocketException
 from passlib.context import CryptContext
 from starlette import status
 
@@ -35,6 +35,15 @@ def verify_access_token(token: str):
         raise HTTPException(detail="Token has expired", status_code=status.HTTP_401_UNAUTHORIZED)
     except jwt.InvalidTokenError:
         raise HTTPException(detail="Invalid token", status_code=status.HTTP_401_UNAUTHORIZED)
+
+def ws_verify_access_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
 
 
 def get_password_hash(password: str) -> str:

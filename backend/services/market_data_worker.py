@@ -1,15 +1,17 @@
 import asyncio
+import json
 from asyncio import Queue, Event, Task
 from typing import List, Optional
 
 import pandas as pd
 from sqlalchemy import select
+import redis.asyncio as aioredis
 
-from db import models
-from db.relational_db import SyncSessionLocal, AsyncSessionLocal
+from db.relational_db import AsyncSessionLocal
 from db.ts_db import write_client, TickerTSModel
 from services.exchanges import EXCHANGE_CLASSES
 from db.models import Ticker
+from core.settings import settings
 
 
 class MainWorker:
@@ -27,6 +29,8 @@ class MainWorker:
         self.tasks: List[Task] = []
 
         self.adapters = [i(self.queue, self.stop_event) for i in EXCHANGE_CLASSES]
+
+        self.redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
 
 
     async def get_active_tickers(self) -> Optional[set]:
@@ -69,6 +73,13 @@ class MainWorker:
                 await asyncio.wait_for(self.stop_event.wait(), timeout=60)
             except asyncio.TimeoutError:
                 pass
+
+    async def publish_ticker_update(self, symbol: str, ticker: TickerTSModel):
+        channel_name = f"ticker:{symbol.upper()}"
+        try:
+            await self.redis_client.publish(channel_name, ticker.model_dump_json(indent=None))
+        except Exception as e:
+            self.pretty_print(f'{repr(e)} occurred in publish_ticker_update')
 
     async def connect(self):
         for i in self.adapters:
@@ -125,6 +136,12 @@ class MainWorker:
 
                 records = res.to_dict(orient='records')
                 validated_records = [TickerTSModel(**i) for i in records]
+
+                for i in validated_records:
+                    try:
+                        await self.publish_ticker_update(i.symbol, i)
+                    except Exception as e:
+                        self.pretty_print(f'{repr(e)} in publishing in redis validated records')
 
                 for i in validated_records:
                     write_client.batch_append(i)

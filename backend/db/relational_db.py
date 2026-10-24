@@ -58,9 +58,6 @@ SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_eng
 
 
 def get_sync_db():
-    """
-        TODO: REST API is still working on sync session.
-    """
     db = SyncSessionLocal()
     try:
         yield db

@@ -38,6 +38,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: frtd_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   worker:
     build:
       context: ./backend
@@ -48,6 +61,7 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - INFLUXDB_URL=http://influxdb:8086
+      - REDIS_URL=redis://redis:6379
     env_file:
       - .env
     depends_on:
@@ -55,7 +69,33 @@ services:
         condition: service_healthy
       influxdb:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web_api:
+    build:
+      context: ./backend
+    container_name: frtd_web_api
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - INFLUXDB_URL=http://influxdb:8086
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:
   influxdb_data:
+  redis_data:
