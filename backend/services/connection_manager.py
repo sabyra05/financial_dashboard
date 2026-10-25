@@ -9,7 +9,7 @@ from starlette import status
 import redis.asyncio as aioredis
 
 from core.settings import settings
-from core.security import verify_access_token, ws_verify_access_token
+from core.security import ws_verify_access_token
 from db import models
 from db.relational_db import AsyncSessionLocal
 
