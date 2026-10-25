@@ -70,4 +70,4 @@ docker compose logs -f worker
 
 **Endpoints:**
 * **REST API Docs:** `http://localhost:8000/docs`
-* **WebSocket Endpoint:** `ws://localhost:8000/ws`
+* **WebSocket Endpoint:** `ws://localhost:8000/ticker/ws`
