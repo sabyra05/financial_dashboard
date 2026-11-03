@@ -188,7 +188,7 @@ async def test_request(
             detail='This ticker doesnt exist'
         )
 
-    result = await read_client.read_data(symbol, minutes=hours * 60, exchange=exchange)
+    result = await read_client.read_data(symbol, minutes=hours * 60, exchange=[exchange, ])
 
     return {'amount': len(result), 'data': result}
 
