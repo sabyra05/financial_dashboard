@@ -1,13 +1,15 @@
-from typing import Optional, List
+import json
+from typing import Optional, List, AsyncGenerator
 
 from influxdb_client import Point
-from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
-from pydantic import BaseModel
+from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync, QueryApiAsync
+from pydantic import BaseModel, ConfigDict
 
 from core.settings import settings
 
 
 class TickerTSModel(BaseModel):
+    time: Optional[str] = None
     symbol: str
     exchange: str
     amount: int
@@ -18,6 +20,8 @@ class TickerTSModel(BaseModel):
     min_total_price: float
     max_total_price: float
     avg_total_price: float
+
+    model_config = ConfigDict(extra="ignore")
 
 class InfluxBaseClient:
     def __init__(self):
@@ -99,7 +103,7 @@ class InfluxReadClient(InfluxBaseClient):
     def __init__(self):
         super().__init__()
         self.token = settings.INFLUXDB_READ_TOKEN
-        self.query_api = None
+        self.query_api: Optional[QueryApiAsync] = None
 
     async def connect(self):
         if self.client is None:
@@ -110,7 +114,7 @@ class InfluxReadClient(InfluxBaseClient):
             self,
             symbol: str,
             exchange: Optional[List[str]] = None,
-            minutes: int = 60
+            minutes: int = 1
     ):
 
         if self.client is None:
@@ -121,7 +125,7 @@ class InfluxReadClient(InfluxBaseClient):
             |> range(start: -{minutes}m)
             |> filter(fn: (r) => r._measurement == "tickers")
             |> filter(fn: (r) => r.symbol == "{symbol.upper()}")
-            |> filter(fn: (r) => r._field == "price")
+            |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
         '''
 
         if exchange and 'all' not in exchange:
@@ -132,16 +136,42 @@ class InfluxReadClient(InfluxBaseClient):
         tables = await self.query_api.query(query)
 
         results = []
-        for table in tables:
-            for record in table.records:
-                results.append({
-                    "time": record.get_time().isoformat(),
-                    "symbol": record.values.get("symbol"),
-                    "exchange": record.values.get("exchange"),
-                    "price": record.get_value()
-                })
+        for record in tables[0].records:
+            results.append(TickerTSModel(**record.values, time=record.get_time().isoformat()))
 
         return results
+
+    async def stream_raw_ticks(
+            self,
+            symbol: str,
+            start: str,
+            end: str,
+            exchange: Optional[List[str]] = None,
+    ) -> AsyncGenerator[TickerTSModel]:
+
+        if self.client is None:
+            await self.connect()
+
+        query = f'''
+            from(bucket: "{self.bucket}") 
+            |> range(start: time(v: "{start}"), stop: time(v: "{end}")) 
+            |> filter(fn: (r) => r._measurement == "tickers") 
+            |> filter(fn: (r) => r.symbol == "{symbol.upper()}") 
+            |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+        '''
+
+        if exchange and 'all' not in exchange:
+            exchange_list_lower = [i.lower() for i in exchange]
+            exchange_filter = ' or '.join([f'r.exchange == "{i}"' for i in exchange_list_lower])
+            query += f'\n|> filter(fn: (r) => {exchange_filter})'
+
+
+        record_stream = await self.query_api.query_stream(query)
+
+        async for i in record_stream:
+            yield TickerTSModel(**i.values, time=i.get_time().isoformat())
+
+
 
 
 write_client = InfluxWriteClient()

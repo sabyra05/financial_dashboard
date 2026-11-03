@@ -1,6 +1,10 @@
-from typing import Optional
+import json
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +13,8 @@ from starlette import status
 from api.dependencies import verify_admin, get_current_user
 from db.models import Ticker
 from db.relational_db import get_async_db
+from core.utils import DateTimeUtil
+from db.ts_db import read_client
 
 
 class TickerCreate(BaseModel):
@@ -165,3 +171,58 @@ async def update(
     response = TickerResponse(**ticker.__dict__)
 
     return {'status': 'success', 'ticker': response}
+
+@tickers_router.get('/{symbol}/recent')
+async def test_request(
+        symbol: str,
+        hours: int = 3,
+        exchange: str = 'binance',
+        token: str = Depends(get_current_user),
+        db_session: AsyncSession = Depends(get_async_db),
+):
+    ticker = await get_ticker(db_session, symbol)
+
+    if not ticker:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='This ticker doesnt exist'
+        )
+
+    result = await read_client.read_data(symbol, minutes=hours * 60, exchange=exchange)
+
+    return {'amount': len(result), 'data': result}
+
+
+@tickers_router.get('/{symbol}/raw')
+async def receive_raw_ticker_data(
+        symbol: str,
+        token: str = Depends(get_current_user),
+        db_session: AsyncSession = Depends(get_async_db),
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        exchange: str = 'binance',
+):
+    ticker = await get_ticker(db_session, symbol)
+
+    if not ticker:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='This ticker doesnt exist'
+        )
+
+    if not start or not end:
+        start = DateTimeUtil.get_relative_time(days=-1)
+        end = DateTimeUtil.time_now()
+
+    async def data_generator():
+        async for record in read_client.stream_raw_ticks(symbol, start, end, exchange=[exchange, ]):
+            yield json.dumps(record.__dict__) + '\n'
+
+    return StreamingResponse(
+        data_generator(),
+        media_type = "application/x-ndjson"
+    )
+
+
+
+
