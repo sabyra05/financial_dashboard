@@ -1,12 +1,10 @@
 import json
-from datetime import datetime
-from decimal import Decimal
-from typing import Optional, Literal
+from typing import Optional, Literal, TypeVar, Generic
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, insert, update
+from sqlalchemy import select, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
@@ -14,7 +12,7 @@ from api.dependencies import verify_admin, get_current_user
 from db.models import Ticker
 from db.relational_db import get_async_db
 from core.utils import DateTimeUtil
-from db.ts_db import read_client
+from db.ts_db import read_client, TickerTSModel
 
 
 class TickerCreate(BaseModel):
@@ -46,6 +44,12 @@ class TickerResponse(BaseModel):
     name: str
     is_active: bool
 
+T = TypeVar("T")
+
+class ResponseModel(BaseModel, Generic[T]):
+    status: Literal['success', 'fail', 'error'] = 'success'
+    details: Optional[dict] = None
+    payload: Optional[T] = None
 
 async def get_ticker(db_session: AsyncSession, symbol: str) -> Optional[Ticker]:
     symbol = symbol.strip().upper()
@@ -60,7 +64,11 @@ async def get_ticker(db_session: AsyncSession, symbol: str) -> Optional[Ticker]:
 tickers_router = APIRouter()
 
 
-@tickers_router.post('/create')
+@tickers_router.post(
+    '/create',
+    response_model=ResponseModel[TickerResponse],
+    status_code=status.HTTP_201_CREATED
+)
 async def create(
         ticker_data: TickerCreate,
         token: str = Depends(verify_admin),
@@ -90,10 +98,14 @@ async def create(
 
     await db_session.commit()
 
-    return {'status': 'success', 'ticker': response}
+    return ResponseModel(status='success', payload=response)
 
 
-@tickers_router.get('/list')
+@tickers_router.get(
+    '/list',
+    response_model= ResponseModel[list[TickerResponse]],
+    status_code=status.HTTP_200_OK
+)
 async def list_t(
         token: str = Depends(get_current_user),
         db_session: AsyncSession = Depends(get_async_db)
@@ -101,12 +113,16 @@ async def list_t(
     stmt = select(Ticker)
     result = await db_session.execute(stmt)
 
-    tickers = result.scalars().all()
+    tickers = [TickerResponse(**i.__dict__) for i in result.scalars().all()]
 
-    return {'status': 'success', 'tickers': tickers}
+    return ResponseModel(status='success', payload=[i for i in tickers])
 
 
-@tickers_router.delete('/{symbol}')
+@tickers_router.delete(
+    '/{symbol}',
+    response_model=ResponseModel,
+    status_code=status.HTTP_200_OK
+)
 async def delete(
         symbol: str,
         token: str = Depends(verify_admin),
@@ -124,10 +140,14 @@ async def delete(
 
     await db_session.commit()
 
-    return {'status': 'success'}
+    return ResponseModel(status='success')
 
 
-@tickers_router.get('/{symbol}')
+@tickers_router.get(
+    '/{symbol}',
+    response_model=ResponseModel[TickerResponse],
+    status_code=status.HTTP_200_OK
+)
 async def recieve(
         symbol: str,
         token: str = Depends(get_current_user),
@@ -143,10 +163,14 @@ async def recieve(
 
     response = TickerResponse(**ticker.__dict__)
 
-    return {'status': 'success', 'ticker': response}
+    return ResponseModel(status='success', payload=response)
 
 
-@tickers_router.patch('/{symbol}')
+@tickers_router.patch(
+    '/{symbol}',
+    response_model=ResponseModel[TickerResponse],
+    status_code=status.HTTP_200_OK
+)
 async def update(
         data: TickerUpdate,
         symbol: str,
@@ -170,10 +194,14 @@ async def update(
 
     response = TickerResponse(**ticker.__dict__)
 
-    return {'status': 'success', 'ticker': response}
+    return ResponseModel(status='success', payload=response)
 
-@tickers_router.get('/{symbol}/recent')
-async def test_request(
+@tickers_router.get(
+    '/{symbol}/recent',
+    response_model=ResponseModel[list[TickerTSModel]],
+    status_code=status.HTTP_200_OK
+)
+async def recent_data(
         symbol: str,
         hours: int = 3,
         exchange: str = 'binance',
@@ -188,12 +216,17 @@ async def test_request(
             detail='This ticker doesnt exist'
         )
 
-    result = await read_client.read_data(symbol, minutes=hours * 60, exchange=[exchange, ])
+    response = await read_client.read_data(symbol, minutes=hours * 60, exchange=[exchange, ])
 
-    return {'amount': len(result), 'data': result}
+    return ResponseModel(status='success', details={'amount': len(response)}, payload=response)
 
 
-@tickers_router.get('/{symbol}/raw')
+@tickers_router.get(
+    '/{symbol}/raw',
+    response_model=list[str],
+    status_code=status.HTTP_200_OK,
+    description='Response model is list[TickerTSModel] but as json strings'
+)
 async def receive_raw_ticker_data(
         symbol: str,
         token: str = Depends(get_current_user),

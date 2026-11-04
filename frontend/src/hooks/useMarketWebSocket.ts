@@ -17,16 +17,20 @@ export interface MarketTick {
 
 export type MarketConnectionStatus = 'disconnected' | 'connecting' | 'authenticating' | 'connected' | 'reconnecting' | 'error';
 
-const WS_URL = 'ws://127.0.0.1:8000/ticker/ws';
+const WS_URL = 'ws://localhost:8000/ticker/ws';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
 }
 
+function normalizeSymbol(value: string): string {
+    return value.trim().toUpperCase();
+}
+
 function parseMarketTick(value: unknown): MarketTick | null {
     if (!isRecord(value) || typeof value.symbol !== 'string' || typeof value.avg_price !== 'number') return null;
     return {
-        symbol: value.symbol,
+        symbol: normalizeSymbol(value.symbol),
         exchange: typeof value.exchange === 'string' ? value.exchange : 'Unknown',
         amount: typeof value.amount === 'number' ? value.amount : 0,
         total_qty: typeof value.total_qty === 'number' ? value.total_qty : 0,
@@ -36,11 +40,13 @@ function parseMarketTick(value: unknown): MarketTick | null {
         min_total_price: typeof value.min_total_price === 'number' ? value.min_total_price : 0,
         max_total_price: typeof value.max_total_price === 'number' ? value.max_total_price : 0,
         avg_total_price: typeof value.avg_total_price === 'number' ? value.avg_total_price : 0,
-        time: Math.floor(Date.now() / 1000),
+        time: typeof value.time === 'number' && Number.isFinite(value.time)
+            ? value.time
+            : Math.floor(Date.now() / 1000),
     };
 }
 
-function useMarketWebSocket(exchange = 'all') {
+function useMarketWebSocket(exchange = 'binance') {
     const token = useAuthStore((state) => state.token);
     const [status, setStatus] = useState<MarketConnectionStatus>('disconnected');
     const [ticks, setTicks] = useState<MarketTick[]>([]);
@@ -110,7 +116,9 @@ function useMarketWebSocket(exchange = 'all') {
                 const tick = parseMarketTick(payload);
                 if (tick) {
                     setTicks((current) => {
-                        return [...current, tick].slice(-200);
+                        const next = [...current, tick].slice(-200);
+                        const map = new Map(next.map((item) => [`${item.exchange}:${item.symbol}`, item]));
+                        return [...map.values()].slice(-200);
                     });
                 }
             };

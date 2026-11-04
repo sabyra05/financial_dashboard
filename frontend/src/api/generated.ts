@@ -4,59 +4,155 @@
  * Financial Real Time Dashboard
  * OpenAPI spec version: 0.1.0
  */
-import type {
-    MutationFunction,
-    QueryFunction,
-    QueryKey,
-    UseMutationOptions,
-    UseMutationResult,
-    UseQueryOptions,
-    UseQueryResult
+import {
+  useMutation,
+  useQuery
 } from '@tanstack/react-query';
-import {useMutation, useQuery} from '@tanstack/react-query';
+import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
+  MutationFunction,
+  QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
+} from '@tanstack/react-query';
 
-import {customAxiosInstance} from './axios-instance';
-
+import { customAxiosInstance } from './axios-instance';
 export interface BodyLoginAuthLoginPost {
-    grant_type?: string | null;
-    username: string;
-    password: string;
-    scope?: string;
-    client_id?: string | null;
-    client_secret?: string | null;
+  grant_type?: string | null;
+  username: string;
+  password: string;
+  scope?: string;
+  client_id?: string | null;
+  client_secret?: string | null;
 }
 
 export type ValidationErrorCtx = { [key: string]: unknown };
 
 export interface ValidationError {
-    loc: (string | number)[];
-    msg: string;
-    type: string;
-    input?: unknown;
-    ctx?: ValidationErrorCtx;
+  loc: (string | number)[];
+  msg: string;
+  type: string;
+  input?: unknown;
+  ctx?: ValidationErrorCtx;
 }
 
 export interface HTTPValidationError {
-    detail?: ValidationError[];
+  detail?: ValidationError[];
+}
+
+export type ResponseModelStatus = typeof ResponseModelStatus[keyof typeof ResponseModelStatus];
+
+
+export const ResponseModelStatus = {
+  success: 'success',
+  fail: 'fail',
+  error: 'error',
+} as const;
+
+export type ResponseModelDetails = { [key: string]: unknown } | null;
+
+export interface ResponseModel {
+  status?: ResponseModelStatus;
+  details?: ResponseModelDetails;
+  payload?: unknown | null;
+}
+
+export type ResponseModelTickerResponseStatus = typeof ResponseModelTickerResponseStatus[keyof typeof ResponseModelTickerResponseStatus];
+
+
+export const ResponseModelTickerResponseStatus = {
+  success: 'success',
+  fail: 'fail',
+  error: 'error',
+} as const;
+
+export type ResponseModelTickerResponseDetails = { [key: string]: unknown } | null;
+
+export interface TickerResponse {
+  id: number;
+  symbol: string;
+  name: string;
+  is_active: boolean;
+}
+
+export interface ResponseModelTickerResponse {
+  status?: ResponseModelTickerResponseStatus;
+  details?: ResponseModelTickerResponseDetails;
+  payload?: TickerResponse | null;
+}
+
+export type ResponseModelListTickerResponseStatus = typeof ResponseModelListTickerResponseStatus[keyof typeof ResponseModelListTickerResponseStatus];
+
+
+export const ResponseModelListTickerResponseStatus = {
+  success: 'success',
+  fail: 'fail',
+  error: 'error',
+} as const;
+
+export type ResponseModelListTickerResponseDetails = { [key: string]: unknown } | null;
+
+export interface ResponseModelListTickerResponse {
+  status?: ResponseModelListTickerResponseStatus;
+  details?: ResponseModelListTickerResponseDetails;
+  payload?: TickerResponse[] | null;
+}
+
+export type ResponseModelListTickerTSModelStatus = typeof ResponseModelListTickerTSModelStatus[keyof typeof ResponseModelListTickerTSModelStatus];
+
+
+export const ResponseModelListTickerTSModelStatus = {
+  success: 'success',
+  fail: 'fail',
+  error: 'error',
+} as const;
+
+export type ResponseModelListTickerTSModelDetails = { [key: string]: unknown } | null;
+
+export interface TickerTSModel {
+  time?: string | null;
+  symbol: string;
+  exchange: string;
+  amount: number;
+  total_qty: number;
+  min_price: number;
+  max_price: number;
+  avg_price: number;
+  min_total_price: number;
+  max_total_price: number;
+  avg_total_price: number;
+}
+
+export interface ResponseModelListTickerTSModel {
+  status?: ResponseModelListTickerTSModelStatus;
+  details?: ResponseModelListTickerTSModelDetails;
+  payload?: TickerTSModel[] | null;
 }
 
 export interface TickerCreate {
-    /**
+  /**
      * @minLength 2
      * @maxLength 10
      */
-    symbol: string;
-    /**
+  symbol: string;
+  /**
      * @minLength 2
      * @maxLength 100
      */
-    name: string;
+  name: string;
 }
 
 export interface TickerUpdate {
-    symbol?: string | null;
-    name?: string | null;
-    is_active?: boolean | null;
+  symbol?: string | null;
+  name?: string | null;
+  is_active?: boolean | null;
 }
 
 /**
@@ -66,108 +162,147 @@ export type UserCreateRole = typeof UserCreateRole[keyof typeof UserCreateRole];
 
 
 export const UserCreateRole = {
-    admin: 'admin',
-    user: 'user',
+  admin: 'admin',
+  user: 'user',
 } as const;
 
 export interface UserCreate {
-    /**
+  /**
      * Username has to be unique
      * @minLength 2
      * @maxLength 100
      */
-    username: string;
-    /** User role */
-    role?: UserCreateRole;
-    /**
+  username: string;
+  /** User role */
+  role?: UserCreateRole;
+  /**
      * Password has to be at least 3 symbols long
      * @minLength 3
      */
-    password: string;
+  password: string;
 }
+
+export type RecentDataTickerSymbolRecentGetParams = {
+hours?: number;
+exchange?: string;
+};
+
+export type ReceiveRawTickerDataTickerSymbolRawGetParams = {
+start?: string | null;
+end?: string | null;
+exchange?: string;
+};
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
+
 const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
-    const result = {queryKey} as T & { queryKey: K };
-    for (const key of Object.keys(query)) {
-        // The explicit queryKey always wins, matching the previous
-        // `{ ...query, queryKey }` spread where it was set last.
-        if (key === 'queryKey') continue;
-        Object.defineProperty(result, key, {
-            enumerable: true,
-            configurable: true,
-            get: () => (query as Record<string, unknown>)[key],
-        });
-    }
-    return result;
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
 };
 
 /**
  * @summary Ping
  */
 export const pingAuthPingGet = (
-    options?: SecondParameter<typeof customAxiosInstance>, signal?: AbortSignal
+
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
 ) => {
 
 
-    return customAxiosInstance<unknown>(
-        {
-            url: `/auth/ping`, method: 'GET', signal
-        },
-        options);
-}
+      return customAxiosInstance<unknown>(
+      {url: `/auth/ping`, method: 'GET', signal
+    },
+      options);
+    }
+
+
 
 
 export const getPingAuthPingGetQueryKey = () => {
     return [
-        `/auth/ping`
+    `/auth/ping`
     ] as const;
-}
+    }
 
 
-export const getPingAuthPingGetQueryOptions = <TData = Awaited<ReturnType<typeof pingAuthPingGet>>, TError = unknown>(options?: {
-                                                                                                                          query?: UseQueryOptions<Awaited<ReturnType<typeof pingAuthPingGet>>, TError, TData>,
-                                                                                                                          request?: SecondParameter<typeof customAxiosInstance>
-                                                                                                                      }
+export const getPingAuthPingGetQueryOptions = <TData = Awaited<ReturnType<typeof pingAuthPingGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pingAuthPingGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
 ) => {
 
-    const {query: queryOptions, request: requestOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-    const queryKey = queryOptions?.queryKey ?? getPingAuthPingGetQueryKey();
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof pingAuthPingGet>>> = ({signal}) => pingAuthPingGet(requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getPingAuthPingGetQueryKey();
 
 
-    return {
-        queryKey,
-        queryFn, ...queryOptions
-    } as UseQueryOptions<Awaited<ReturnType<typeof pingAuthPingGet>>, TError, TData> & { queryKey: QueryKey }
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof pingAuthPingGet>>> = ({ signal }) => pingAuthPingGet(requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof pingAuthPingGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
 export type PingAuthPingGetQueryResult = NonNullable<Awaited<ReturnType<typeof pingAuthPingGet>>>
 export type PingAuthPingGetQueryError = unknown
 
 
+export function usePingAuthPingGet<TData = Awaited<ReturnType<typeof pingAuthPingGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof pingAuthPingGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pingAuthPingGet>>,
+          TError,
+          Awaited<ReturnType<typeof pingAuthPingGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePingAuthPingGet<TData = Awaited<ReturnType<typeof pingAuthPingGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pingAuthPingGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pingAuthPingGet>>,
+          TError,
+          Awaited<ReturnType<typeof pingAuthPingGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePingAuthPingGet<TData = Awaited<ReturnType<typeof pingAuthPingGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pingAuthPingGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Ping
  */
 
 export function usePingAuthPingGet<TData = Awaited<ReturnType<typeof pingAuthPingGet>>, TError = unknown>(
-    options?: {
-        query?: UseQueryOptions<Awaited<ReturnType<typeof pingAuthPingGet>>, TError, TData>,
-        request?: SecondParameter<typeof customAxiosInstance>
-    }
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pingAuthPingGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-    const queryOptions = getPingAuthPingGetQueryOptions(options)
+  const queryOptions = getPingAuthPingGetQueryOptions(options)
 
-    const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
-    return withQueryKey(query, queryOptions.queryKey);
+  return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
 
 
 /**
@@ -175,284 +310,311 @@ export function usePingAuthPingGet<TData = Awaited<ReturnType<typeof pingAuthPin
  */
 export const registrateAuthRegistratePost = (
     userCreate: UserCreate,
-    options?: SecondParameter<typeof customAxiosInstance>, signal?: AbortSignal
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
 ) => {
 
 
-    return customAxiosInstance<unknown>(
-        {
-            url: `/auth/registrate`, method: 'POST',
-            headers: {'Content-Type': 'application/json',},
-            data: userCreate, signal
-        },
-        options);
-}
+      return customAxiosInstance<unknown>(
+      {url: `/auth/registrate`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: userCreate, signal
+    },
+      options);
+    }
+
+
 
 
 export const getRegistrateAuthRegistratePostMutationKey = () => ['registrateAuthRegistratePost'] as const;
 
 export const getRegistrateAuthRegistratePostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof registrateAuthRegistratePost>>, TError, RegistrateAuthRegistratePostMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationOptions<Awaited<ReturnType<typeof registrateAuthRegistratePost>>, TError, RegistrateAuthRegistratePostMutationVariables, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registrateAuthRegistratePost>>, TError,RegistrateAuthRegistratePostMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof registrateAuthRegistratePost>>, TError,RegistrateAuthRegistratePostMutationVariables, TContext> => {
 
-    const mutationKey = getRegistrateAuthRegistratePostMutationKey();
-    const {mutation: mutationOptions, request: requestOptions} = options ?
-        options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-            options
-            : {...options, mutation: {...options.mutation, mutationKey}}
-        : {mutation: {mutationKey,}, request: undefined};
+const mutationKey = getRegistrateAuthRegistratePostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
 
-    const mutationFn: MutationFunction<Awaited<ReturnType<typeof registrateAuthRegistratePost>>, RegistrateAuthRegistratePostMutationVariables> = (props) => {
-        const {data} = props ?? {};
-
-        return registrateAuthRegistratePost(data, requestOptions)
-    }
 
 
-    return {mutationFn, ...mutationOptions}
-}
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registrateAuthRegistratePost>>, RegistrateAuthRegistratePostMutationVariables> = (props) => {
+          const {data} = props ?? {};
 
-export type RegistrateAuthRegistratePostMutationResult = NonNullable<Awaited<ReturnType<typeof registrateAuthRegistratePost>>>
-export type RegistrateAuthRegistratePostMutationBody = UserCreate
-export type RegistrateAuthRegistratePostMutationError = HTTPValidationError
-export type RegistrateAuthRegistratePostMutationVariables = { data: UserCreate }
+          return  registrateAuthRegistratePost(data,requestOptions)
+        }
 
-/**
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegistrateAuthRegistratePostMutationResult = NonNullable<Awaited<ReturnType<typeof registrateAuthRegistratePost>>>
+    export type RegistrateAuthRegistratePostMutationBody = UserCreate
+    export type RegistrateAuthRegistratePostMutationError = HTTPValidationError
+    export type RegistrateAuthRegistratePostMutationVariables = {data: UserCreate}
+
+    /**
  * @summary Registrate
  */
 export const useRegistrateAuthRegistratePost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof registrateAuthRegistratePost>>, TError, RegistrateAuthRegistratePostMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationResult<
-    Awaited<ReturnType<typeof registrateAuthRegistratePost>>,
-    TError,
-    RegistrateAuthRegistratePostMutationVariables,
-    TContext
-> => {
-    return useMutation(getRegistrateAuthRegistratePostMutationOptions(options));
-}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registrateAuthRegistratePost>>, TError,RegistrateAuthRegistratePostMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof registrateAuthRegistratePost>>,
+        TError,
+        RegistrateAuthRegistratePostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRegistrateAuthRegistratePostMutationOptions(options), queryClient);
+    }
 
 /**
  * @summary Login
  */
 export const loginAuthLoginPost = (
     bodyLoginAuthLoginPost: BodyLoginAuthLoginPost,
-    options?: SecondParameter<typeof customAxiosInstance>, signal?: AbortSignal
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
 ) => {
 
-    const formUrlEncoded = new URLSearchParams();
-    if (bodyLoginAuthLoginPost.grant_type !== undefined && bodyLoginAuthLoginPost.grant_type !== null) {
-        formUrlEncoded.append(`grant_type`, bodyLoginAuthLoginPost.grant_type);
-    }
-    formUrlEncoded.append(`username`, bodyLoginAuthLoginPost.username);
-    formUrlEncoded.append(`password`, bodyLoginAuthLoginPost.password);
-    if (bodyLoginAuthLoginPost.scope !== undefined) {
-        formUrlEncoded.append(`scope`, bodyLoginAuthLoginPost.scope);
-    }
-    if (bodyLoginAuthLoginPost.client_id !== undefined && bodyLoginAuthLoginPost.client_id !== null) {
-        formUrlEncoded.append(`client_id`, bodyLoginAuthLoginPost.client_id);
-    }
-    if (bodyLoginAuthLoginPost.client_secret !== undefined && bodyLoginAuthLoginPost.client_secret !== null) {
-        formUrlEncoded.append(`client_secret`, bodyLoginAuthLoginPost.client_secret);
+      const formUrlEncoded = new URLSearchParams();
+if(bodyLoginAuthLoginPost.grant_type !== undefined && bodyLoginAuthLoginPost.grant_type !== null) {
+ formUrlEncoded.append(`grant_type`, bodyLoginAuthLoginPost.grant_type);
+ }
+formUrlEncoded.append(`username`, bodyLoginAuthLoginPost.username);
+formUrlEncoded.append(`password`, bodyLoginAuthLoginPost.password);
+if(bodyLoginAuthLoginPost.scope !== undefined) {
+ formUrlEncoded.append(`scope`, bodyLoginAuthLoginPost.scope);
+ }
+if(bodyLoginAuthLoginPost.client_id !== undefined && bodyLoginAuthLoginPost.client_id !== null) {
+ formUrlEncoded.append(`client_id`, bodyLoginAuthLoginPost.client_id);
+ }
+if(bodyLoginAuthLoginPost.client_secret !== undefined && bodyLoginAuthLoginPost.client_secret !== null) {
+ formUrlEncoded.append(`client_secret`, bodyLoginAuthLoginPost.client_secret);
+ }
+
+      return customAxiosInstance<unknown>(
+      {url: `/auth/login`, method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', },
+       data: formUrlEncoded, signal
+    },
+      options);
     }
 
-    return customAxiosInstance<unknown>(
-        {
-            url: `/auth/login`, method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded',},
-            data: formUrlEncoded, signal
-        },
-        options);
-}
+
 
 
 export const getLoginAuthLoginPostMutationKey = () => ['loginAuthLoginPost'] as const;
 
 export const getLoginAuthLoginPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof loginAuthLoginPost>>, TError, LoginAuthLoginPostMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationOptions<Awaited<ReturnType<typeof loginAuthLoginPost>>, TError, LoginAuthLoginPostMutationVariables, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginAuthLoginPost>>, TError,LoginAuthLoginPostMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof loginAuthLoginPost>>, TError,LoginAuthLoginPostMutationVariables, TContext> => {
 
-    const mutationKey = getLoginAuthLoginPostMutationKey();
-    const {mutation: mutationOptions, request: requestOptions} = options ?
-        options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-            options
-            : {...options, mutation: {...options.mutation, mutationKey}}
-        : {mutation: {mutationKey,}, request: undefined};
+const mutationKey = getLoginAuthLoginPostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
 
-    const mutationFn: MutationFunction<Awaited<ReturnType<typeof loginAuthLoginPost>>, LoginAuthLoginPostMutationVariables> = (props) => {
-        const {data} = props ?? {};
-
-        return loginAuthLoginPost(data, requestOptions)
-    }
 
 
-    return {mutationFn, ...mutationOptions}
-}
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof loginAuthLoginPost>>, LoginAuthLoginPostMutationVariables> = (props) => {
+          const {data} = props ?? {};
 
-export type LoginAuthLoginPostMutationResult = NonNullable<Awaited<ReturnType<typeof loginAuthLoginPost>>>
-export type LoginAuthLoginPostMutationBody = BodyLoginAuthLoginPost
-export type LoginAuthLoginPostMutationError = HTTPValidationError
-export type LoginAuthLoginPostMutationVariables = { data: BodyLoginAuthLoginPost }
+          return  loginAuthLoginPost(data,requestOptions)
+        }
 
-/**
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LoginAuthLoginPostMutationResult = NonNullable<Awaited<ReturnType<typeof loginAuthLoginPost>>>
+    export type LoginAuthLoginPostMutationBody = BodyLoginAuthLoginPost
+    export type LoginAuthLoginPostMutationError = HTTPValidationError
+    export type LoginAuthLoginPostMutationVariables = {data: BodyLoginAuthLoginPost}
+
+    /**
  * @summary Login
  */
 export const useLoginAuthLoginPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof loginAuthLoginPost>>, TError, LoginAuthLoginPostMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationResult<
-    Awaited<ReturnType<typeof loginAuthLoginPost>>,
-    TError,
-    LoginAuthLoginPostMutationVariables,
-    TContext
-> => {
-    return useMutation(getLoginAuthLoginPostMutationOptions(options));
-}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginAuthLoginPost>>, TError,LoginAuthLoginPostMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof loginAuthLoginPost>>,
+        TError,
+        LoginAuthLoginPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLoginAuthLoginPostMutationOptions(options), queryClient);
+    }
 
 /**
  * @summary Create
  */
 export const createTickerCreatePost = (
     tickerCreate: TickerCreate,
-    options?: SecondParameter<typeof customAxiosInstance>, signal?: AbortSignal
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
 ) => {
 
 
-    return customAxiosInstance<unknown>(
-        {
-            url: `/ticker/create`, method: 'POST',
-            headers: {'Content-Type': 'application/json',},
-            data: tickerCreate, signal
-        },
-        options);
-}
+      return customAxiosInstance<ResponseModelTickerResponse>(
+      {url: `/ticker/create`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: tickerCreate, signal
+    },
+      options);
+    }
+
+
 
 
 export const getCreateTickerCreatePostMutationKey = () => ['createTickerCreatePost'] as const;
 
 export const getCreateTickerCreatePostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof createTickerCreatePost>>, TError, CreateTickerCreatePostMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationOptions<Awaited<ReturnType<typeof createTickerCreatePost>>, TError, CreateTickerCreatePostMutationVariables, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTickerCreatePost>>, TError,CreateTickerCreatePostMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTickerCreatePost>>, TError,CreateTickerCreatePostMutationVariables, TContext> => {
 
-    const mutationKey = getCreateTickerCreatePostMutationKey();
-    const {mutation: mutationOptions, request: requestOptions} = options ?
-        options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-            options
-            : {...options, mutation: {...options.mutation, mutationKey}}
-        : {mutation: {mutationKey,}, request: undefined};
+const mutationKey = getCreateTickerCreatePostMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
 
-    const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTickerCreatePost>>, CreateTickerCreatePostMutationVariables> = (props) => {
-        const {data} = props ?? {};
-
-        return createTickerCreatePost(data, requestOptions)
-    }
 
 
-    return {mutationFn, ...mutationOptions}
-}
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTickerCreatePost>>, CreateTickerCreatePostMutationVariables> = (props) => {
+          const {data} = props ?? {};
 
-export type CreateTickerCreatePostMutationResult = NonNullable<Awaited<ReturnType<typeof createTickerCreatePost>>>
-export type CreateTickerCreatePostMutationBody = TickerCreate
-export type CreateTickerCreatePostMutationError = HTTPValidationError
-export type CreateTickerCreatePostMutationVariables = { data: TickerCreate }
+          return  createTickerCreatePost(data,requestOptions)
+        }
 
-/**
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTickerCreatePostMutationResult = NonNullable<Awaited<ReturnType<typeof createTickerCreatePost>>>
+    export type CreateTickerCreatePostMutationBody = TickerCreate
+    export type CreateTickerCreatePostMutationError = HTTPValidationError
+    export type CreateTickerCreatePostMutationVariables = {data: TickerCreate}
+
+    /**
  * @summary Create
  */
 export const useCreateTickerCreatePost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof createTickerCreatePost>>, TError, CreateTickerCreatePostMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationResult<
-    Awaited<ReturnType<typeof createTickerCreatePost>>,
-    TError,
-    CreateTickerCreatePostMutationVariables,
-    TContext
-> => {
-    return useMutation(getCreateTickerCreatePostMutationOptions(options));
-}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTickerCreatePost>>, TError,CreateTickerCreatePostMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createTickerCreatePost>>,
+        TError,
+        CreateTickerCreatePostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateTickerCreatePostMutationOptions(options), queryClient);
+    }
 
 /**
  * @summary List T
  */
 export const listTTickerListGet = (
-    options?: SecondParameter<typeof customAxiosInstance>, signal?: AbortSignal
+
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
 ) => {
 
 
-    return customAxiosInstance<unknown>(
-        {
-            url: `/ticker/list`, method: 'GET', signal
-        },
-        options);
-}
+      return customAxiosInstance<ResponseModelListTickerResponse>(
+      {url: `/ticker/list`, method: 'GET', signal
+    },
+      options);
+    }
+
+
 
 
 export const getListTTickerListGetQueryKey = () => {
     return [
-        `/ticker/list`
+    `/ticker/list`
     ] as const;
-}
+    }
 
 
-export const getListTTickerListGetQueryOptions = <TData = Awaited<ReturnType<typeof listTTickerListGet>>, TError = HTTPValidationError>(options?: {
-                                                                                                                                            query?: UseQueryOptions<Awaited<ReturnType<typeof listTTickerListGet>>, TError, TData>,
-                                                                                                                                            request?: SecondParameter<typeof customAxiosInstance>
-                                                                                                                                        }
+export const getListTTickerListGetQueryOptions = <TData = Awaited<ReturnType<typeof listTTickerListGet>>, TError = HTTPValidationError>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTTickerListGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
 ) => {
 
-    const {query: queryOptions, request: requestOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-    const queryKey = queryOptions?.queryKey ?? getListTTickerListGetQueryKey();
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTTickerListGet>>> = ({signal}) => listTTickerListGet(requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getListTTickerListGetQueryKey();
 
 
-    return {
-        queryKey,
-        queryFn, ...queryOptions
-    } as UseQueryOptions<Awaited<ReturnType<typeof listTTickerListGet>>, TError, TData> & { queryKey: QueryKey }
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTTickerListGet>>> = ({ signal }) => listTTickerListGet(requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTTickerListGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
 export type ListTTickerListGetQueryResult = NonNullable<Awaited<ReturnType<typeof listTTickerListGet>>>
 export type ListTTickerListGetQueryError = HTTPValidationError
 
 
+export function useListTTickerListGet<TData = Awaited<ReturnType<typeof listTTickerListGet>>, TError = HTTPValidationError>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTTickerListGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTTickerListGet>>,
+          TError,
+          Awaited<ReturnType<typeof listTTickerListGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTTickerListGet<TData = Awaited<ReturnType<typeof listTTickerListGet>>, TError = HTTPValidationError>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTTickerListGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTTickerListGet>>,
+          TError,
+          Awaited<ReturnType<typeof listTTickerListGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTTickerListGet<TData = Awaited<ReturnType<typeof listTTickerListGet>>, TError = HTTPValidationError>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTTickerListGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary List T
  */
 
 export function useListTTickerListGet<TData = Awaited<ReturnType<typeof listTTickerListGet>>, TError = HTTPValidationError>(
-    options?: {
-        query?: UseQueryOptions<Awaited<ReturnType<typeof listTTickerListGet>>, TError, TData>,
-        request?: SecondParameter<typeof customAxiosInstance>
-    }
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTTickerListGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-    const queryOptions = getListTTickerListGetQueryOptions(options)
+  const queryOptions = getListTTickerListGetQueryOptions(options)
 
-    const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
-    return withQueryKey(query, queryOptions.queryKey);
+  return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
 
 
 /**
@@ -460,133 +622,158 @@ export function useListTTickerListGet<TData = Awaited<ReturnType<typeof listTTic
  */
 export const deleteTickerSymbolDelete = (
     symbol: string,
-    options?: SecondParameter<typeof customAxiosInstance>, signal?: AbortSignal
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
 ) => {
 
 
-    return customAxiosInstance<unknown>(
-        {
-            url: `/ticker/${symbol}`, method: 'DELETE', signal
-        },
-        options);
-}
+      return customAxiosInstance<ResponseModel>(
+      {url: `/ticker/${symbol}`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
 
 
 export const getDeleteTickerSymbolDeleteMutationKey = () => ['deleteTickerSymbolDelete'] as const;
 
 export const getDeleteTickerSymbolDeleteMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>, TError, DeleteTickerSymbolDeleteMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationOptions<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>, TError, DeleteTickerSymbolDeleteMutationVariables, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>, TError,DeleteTickerSymbolDeleteMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>, TError,DeleteTickerSymbolDeleteMutationVariables, TContext> => {
 
-    const mutationKey = getDeleteTickerSymbolDeleteMutationKey();
-    const {mutation: mutationOptions, request: requestOptions} = options ?
-        options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-            options
-            : {...options, mutation: {...options.mutation, mutationKey}}
-        : {mutation: {mutationKey,}, request: undefined};
+const mutationKey = getDeleteTickerSymbolDeleteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
 
-    const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>, DeleteTickerSymbolDeleteMutationVariables> = (props) => {
-        const {symbol} = props ?? {};
-
-        return deleteTickerSymbolDelete(symbol, requestOptions)
-    }
 
 
-    return {mutationFn, ...mutationOptions}
-}
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>, DeleteTickerSymbolDeleteMutationVariables> = (props) => {
+          const {symbol} = props ?? {};
 
-export type DeleteTickerSymbolDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>>
+          return  deleteTickerSymbolDelete(symbol,requestOptions)
+        }
 
-export type DeleteTickerSymbolDeleteMutationError = HTTPValidationError
-export type DeleteTickerSymbolDeleteMutationVariables = { symbol: string }
 
-/**
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteTickerSymbolDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>>
+
+    export type DeleteTickerSymbolDeleteMutationError = HTTPValidationError
+    export type DeleteTickerSymbolDeleteMutationVariables = {symbol: string}
+
+    /**
  * @summary Delete
  */
 export const useDeleteTickerSymbolDelete = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>, TError, DeleteTickerSymbolDeleteMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationResult<
-    Awaited<ReturnType<typeof deleteTickerSymbolDelete>>,
-    TError,
-    DeleteTickerSymbolDeleteMutationVariables,
-    TContext
-> => {
-    return useMutation(getDeleteTickerSymbolDeleteMutationOptions(options));
-}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTickerSymbolDelete>>, TError,DeleteTickerSymbolDeleteMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteTickerSymbolDelete>>,
+        TError,
+        DeleteTickerSymbolDeleteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteTickerSymbolDeleteMutationOptions(options), queryClient);
+    }
 
 /**
  * @summary Recieve
  */
 export const recieveTickerSymbolGet = (
     symbol: string,
-    options?: SecondParameter<typeof customAxiosInstance>, signal?: AbortSignal
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
 ) => {
 
 
-    return customAxiosInstance<unknown>(
-        {
-            url: `/ticker/${symbol}`, method: 'GET', signal
-        },
-        options);
-}
+      return customAxiosInstance<ResponseModelTickerResponse>(
+      {url: `/ticker/${symbol}`, method: 'GET', signal
+    },
+      options);
+    }
+
+
 
 
 export const getRecieveTickerSymbolGetQueryKey = (symbol: string,) => {
     return [
-        `/ticker/${symbol}`
+    `/ticker/${symbol}`
     ] as const;
-}
+    }
 
 
-export const getRecieveTickerSymbolGetQueryOptions = <TData = Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError = HTTPValidationError>(symbol: string, options?: {
-                                                                                                                                                    query?: UseQueryOptions<Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError, TData>,
-                                                                                                                                                    request?: SecondParameter<typeof customAxiosInstance>
-                                                                                                                                                }
+export const getRecieveTickerSymbolGetQueryOptions = <TData = Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError = HTTPValidationError>(symbol: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
 ) => {
 
-    const {query: queryOptions, request: requestOptions} = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-    const queryKey = queryOptions?.queryKey ?? getRecieveTickerSymbolGetQueryKey(symbol);
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof recieveTickerSymbolGet>>> = ({signal}) => recieveTickerSymbolGet(symbol, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getRecieveTickerSymbolGetQueryKey(symbol);
 
 
-    return {
-        queryKey,
-        queryFn,
-        enabled: symbol !== null && symbol !== undefined, ...queryOptions
-    } as UseQueryOptions<Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError, TData> & { queryKey: QueryKey }
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof recieveTickerSymbolGet>>> = ({ signal }) => recieveTickerSymbolGet(symbol, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: symbol !== null && symbol !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
 export type RecieveTickerSymbolGetQueryResult = NonNullable<Awaited<ReturnType<typeof recieveTickerSymbolGet>>>
 export type RecieveTickerSymbolGetQueryError = HTTPValidationError
 
 
+export function useRecieveTickerSymbolGet<TData = Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError = HTTPValidationError>(
+ symbol: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof recieveTickerSymbolGet>>,
+          TError,
+          Awaited<ReturnType<typeof recieveTickerSymbolGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRecieveTickerSymbolGet<TData = Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError = HTTPValidationError>(
+ symbol: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof recieveTickerSymbolGet>>,
+          TError,
+          Awaited<ReturnType<typeof recieveTickerSymbolGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRecieveTickerSymbolGet<TData = Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError = HTTPValidationError>(
+ symbol: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Recieve
  */
 
 export function useRecieveTickerSymbolGet<TData = Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError = HTTPValidationError>(
-    symbol: string, options?: {
-        query?: UseQueryOptions<Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError, TData>,
-        request?: SecondParameter<typeof customAxiosInstance>
-    }
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ symbol: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recieveTickerSymbolGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-    const queryOptions = getRecieveTickerSymbolGetQueryOptions(symbol, options)
+  const queryOptions = getRecieveTickerSymbolGetQueryOptions(symbol,options)
 
-    const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
-    return withQueryKey(query, queryOptions.queryKey);
+  return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
 
 
 /**
@@ -595,65 +782,262 @@ export function useRecieveTickerSymbolGet<TData = Awaited<ReturnType<typeof reci
 export const updateTickerSymbolPatch = (
     symbol: string,
     tickerUpdate: TickerUpdate,
-    options?: SecondParameter<typeof customAxiosInstance>, signal?: AbortSignal
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
 ) => {
 
 
-    return customAxiosInstance<unknown>(
-        {
-            url: `/ticker/${symbol}`, method: 'PATCH',
-            headers: {'Content-Type': 'application/json',},
-            data: tickerUpdate, signal
-        },
-        options);
-}
+      return customAxiosInstance<ResponseModelTickerResponse>(
+      {url: `/ticker/${symbol}`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: tickerUpdate, signal
+    },
+      options);
+    }
+
+
 
 
 export const getUpdateTickerSymbolPatchMutationKey = () => ['updateTickerSymbolPatch'] as const;
 
 export const getUpdateTickerSymbolPatchMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateTickerSymbolPatch>>, TError, UpdateTickerSymbolPatchMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationOptions<Awaited<ReturnType<typeof updateTickerSymbolPatch>>, TError, UpdateTickerSymbolPatchMutationVariables, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTickerSymbolPatch>>, TError,UpdateTickerSymbolPatchMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTickerSymbolPatch>>, TError,UpdateTickerSymbolPatchMutationVariables, TContext> => {
 
-    const mutationKey = getUpdateTickerSymbolPatchMutationKey();
-    const {mutation: mutationOptions, request: requestOptions} = options ?
-        options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-            options
-            : {...options, mutation: {...options.mutation, mutationKey}}
-        : {mutation: {mutationKey,}, request: undefined};
+const mutationKey = getUpdateTickerSymbolPatchMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
 
-    const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTickerSymbolPatch>>, UpdateTickerSymbolPatchMutationVariables> = (props) => {
-        const {symbol, data} = props ?? {};
-
-        return updateTickerSymbolPatch(symbol, data, requestOptions)
-    }
 
 
-    return {mutationFn, ...mutationOptions}
-}
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTickerSymbolPatch>>, UpdateTickerSymbolPatchMutationVariables> = (props) => {
+          const {symbol,data} = props ?? {};
 
-export type UpdateTickerSymbolPatchMutationResult = NonNullable<Awaited<ReturnType<typeof updateTickerSymbolPatch>>>
-export type UpdateTickerSymbolPatchMutationBody = TickerUpdate
-export type UpdateTickerSymbolPatchMutationError = HTTPValidationError
-export type UpdateTickerSymbolPatchMutationVariables = { symbol: string; data: TickerUpdate }
+          return  updateTickerSymbolPatch(symbol,data,requestOptions)
+        }
 
-/**
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTickerSymbolPatchMutationResult = NonNullable<Awaited<ReturnType<typeof updateTickerSymbolPatch>>>
+    export type UpdateTickerSymbolPatchMutationBody = TickerUpdate
+    export type UpdateTickerSymbolPatchMutationError = HTTPValidationError
+    export type UpdateTickerSymbolPatchMutationVariables = {symbol: string;data: TickerUpdate}
+
+    /**
  * @summary Update
  */
 export const useUpdateTickerSymbolPatch = <TError = HTTPValidationError,
-    TContext = unknown>(options?: {
-                            mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateTickerSymbolPatch>>, TError, UpdateTickerSymbolPatchMutationVariables, TContext>,
-                            request?: SecondParameter<typeof customAxiosInstance>
-                        }
-): UseMutationResult<
-    Awaited<ReturnType<typeof updateTickerSymbolPatch>>,
-    TError,
-    UpdateTickerSymbolPatchMutationVariables,
-    TContext
-> => {
-    return useMutation(getUpdateTickerSymbolPatchMutationOptions(options));
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTickerSymbolPatch>>, TError,UpdateTickerSymbolPatchMutationVariables, TContext>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateTickerSymbolPatch>>,
+        TError,
+        UpdateTickerSymbolPatchMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateTickerSymbolPatchMutationOptions(options), queryClient);
+    }
+
+/**
+ * @summary Recent Data
+ */
+export const recentDataTickerSymbolRecentGet = (
+    symbol: string,
+    params?: RecentDataTickerSymbolRecentGetParams,
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
+) => {
+
+
+      return customAxiosInstance<ResponseModelListTickerTSModel>(
+      {url: `/ticker/${symbol}/recent`, method: 'GET',
+        params, signal
+    },
+      options);
+    }
+
+
+
+
+export const getRecentDataTickerSymbolRecentGetQueryKey = (symbol: string,
+    params?: RecentDataTickerSymbolRecentGetParams,) => {
+    return [
+    `/ticker/${symbol}/recent`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getRecentDataTickerSymbolRecentGetQueryOptions = <TData = Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError = HTTPValidationError>(symbol: string,
+    params?: RecentDataTickerSymbolRecentGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getRecentDataTickerSymbolRecentGetQueryKey(symbol,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>> = ({ signal }) => recentDataTickerSymbolRecentGet(symbol,params, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: symbol !== null && symbol !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type RecentDataTickerSymbolRecentGetQueryResult = NonNullable<Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>>
+export type RecentDataTickerSymbolRecentGetQueryError = HTTPValidationError
+
+
+export function useRecentDataTickerSymbolRecentGet<TData = Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError = HTTPValidationError>(
+ symbol: string,
+    params: undefined |  RecentDataTickerSymbolRecentGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>,
+          TError,
+          Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRecentDataTickerSymbolRecentGet<TData = Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError = HTTPValidationError>(
+ symbol: string,
+    params?: RecentDataTickerSymbolRecentGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>,
+          TError,
+          Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRecentDataTickerSymbolRecentGet<TData = Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError = HTTPValidationError>(
+ symbol: string,
+    params?: RecentDataTickerSymbolRecentGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Recent Data
+ */
+
+export function useRecentDataTickerSymbolRecentGet<TData = Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError = HTTPValidationError>(
+ symbol: string,
+    params?: RecentDataTickerSymbolRecentGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof recentDataTickerSymbolRecentGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getRecentDataTickerSymbolRecentGetQueryOptions(symbol,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+/**
+ * Response model is list[TickerTSModel] but as json strings
+ * @summary Receive Raw Ticker Data
+ */
+export const receiveRawTickerDataTickerSymbolRawGet = (
+    symbol: string,
+    params?: ReceiveRawTickerDataTickerSymbolRawGetParams,
+ options?: SecondParameter<typeof customAxiosInstance>,signal?: AbortSignal
+) => {
+
+
+      return customAxiosInstance<string[]>(
+      {url: `/ticker/${symbol}/raw`, method: 'GET',
+        params, signal
+    },
+      options);
+    }
+
+
+
+
+export const getReceiveRawTickerDataTickerSymbolRawGetQueryKey = (symbol: string,
+    params?: ReceiveRawTickerDataTickerSymbolRawGetParams,) => {
+    return [
+    `/ticker/${symbol}/raw`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getReceiveRawTickerDataTickerSymbolRawGetQueryOptions = <TData = Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError = HTTPValidationError>(symbol: string,
+    params?: ReceiveRawTickerDataTickerSymbolRawGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReceiveRawTickerDataTickerSymbolRawGetQueryKey(symbol,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>> = ({ signal }) => receiveRawTickerDataTickerSymbolRawGet(symbol,params, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: symbol !== null && symbol !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ReceiveRawTickerDataTickerSymbolRawGetQueryResult = NonNullable<Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>>
+export type ReceiveRawTickerDataTickerSymbolRawGetQueryError = HTTPValidationError
+
+
+export function useReceiveRawTickerDataTickerSymbolRawGet<TData = Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError = HTTPValidationError>(
+ symbol: string,
+    params: undefined |  ReceiveRawTickerDataTickerSymbolRawGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>,
+          TError,
+          Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReceiveRawTickerDataTickerSymbolRawGet<TData = Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError = HTTPValidationError>(
+ symbol: string,
+    params?: ReceiveRawTickerDataTickerSymbolRawGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>,
+          TError,
+          Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReceiveRawTickerDataTickerSymbolRawGet<TData = Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError = HTTPValidationError>(
+ symbol: string,
+    params?: ReceiveRawTickerDataTickerSymbolRawGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Receive Raw Ticker Data
+ */
+
+export function useReceiveRawTickerDataTickerSymbolRawGet<TData = Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError = HTTPValidationError>(
+ symbol: string,
+    params?: ReceiveRawTickerDataTickerSymbolRawGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof receiveRawTickerDataTickerSymbolRawGet>>, TError, TData>>, request?: SecondParameter<typeof customAxiosInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getReceiveRawTickerDataTickerSymbolRawGetQueryOptions(symbol,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
 }

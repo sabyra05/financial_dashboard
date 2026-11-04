@@ -2,6 +2,7 @@ import {Button, Card, Form, Input, Typography, message} from 'antd';
 import {Link, Navigate, useNavigate} from 'react-router-dom';
 import {useRegistrateAuthRegistratePost} from '../../api/generated';
 import type {UserCreate} from '../../api/generated';
+import {useLanguageStore} from '../../store/useLanguageStore';
 import {useAuthStore} from '../../store/useAuthStore';
 
 interface RegisterForm extends UserCreate {
@@ -11,13 +12,14 @@ interface RegisterForm extends UserCreate {
 function RegisterPage() {
     const token = useAuthStore((state) => state.token);
     const navigate = useNavigate();
+    const t = useLanguageStore((state) => state.t);
     const {mutate: register, isPending} = useRegistrateAuthRegistratePost({
         mutation: {
             onSuccess: () => {
-                message.success('Аккаунт создан. Теперь войдите.');
+                message.success(t('accountCreated'));
                 navigate('/login', {replace: true});
             },
-            onError: () => message.error('Не удалось создать аккаунт. Возможно, логин уже занят.'),
+            onError: () => message.error(t('accountCreateFailed')),
         },
     });
 
@@ -30,37 +32,37 @@ function RegisterPage() {
     return (
         <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
             <Card className="w-full max-w-md shadow-sm" variant="borderless">
-                <Typography.Title level={2}>Регистрация</Typography.Title>
+                <Typography.Title level={2}>{t('registerTitle')}</Typography.Title>
                 <Form<RegisterForm> layout="vertical" onFinish={onFinish} requiredMark={false}>
-                    <Form.Item name="username" label="Логин" rules={[
-                        {required: true, message: 'Введите логин'},
-                        {min: 2, message: 'Минимум 2 символа'},
-                        {max: 100, message: 'Максимум 100 символов'},
+                    <Form.Item name="username" label={t('username')} rules={[
+                        {required: true, message: t('enterUsername')},
+                        {min: 2, message: t('min2Chars')},
+                        {max: 100, message: t('max100Chars')},
                     ]}>
                         <Input autoComplete="username" size="large" />
                     </Form.Item>
-                    <Form.Item name="password" label="Пароль" rules={[
-                        {required: true, message: 'Введите пароль'},
-                        {min: 3, message: 'Минимум 3 символа'},
+                    <Form.Item name="password" label={t('password')} rules={[
+                        {required: true, message: t('enterPassword')},
+                        {min: 3, message: t('min3Chars')},
                     ]}>
                         <Input.Password autoComplete="new-password" size="large" />
                     </Form.Item>
-                    <Form.Item name="confirmPassword" label="Повторите пароль" dependencies={['password']} rules={[
-                        {required: true, message: 'Повторите пароль'},
+                    <Form.Item name="confirmPassword" label={t('repeatPassword')} dependencies={['password']} rules={[
+                        {required: true, message: t('repeatPassword')},
                         ({getFieldValue}) => ({
                             validator(_, value: string) {
                                 return !value || getFieldValue('password') === value
                                     ? Promise.resolve()
-                                    : Promise.reject(new Error('Пароли не совпадают'));
+                                    : Promise.reject(new Error(t('passwordsMatch')));
                             },
                         }),
                     ]}>
                         <Input.Password autoComplete="new-password" size="large" />
                     </Form.Item>
-                    <Button type="primary" htmlType="submit" loading={isPending} block size="large">Создать аккаунт</Button>
+                    <Button type="primary" htmlType="submit" loading={isPending} block size="large">{t('createAccount')}</Button>
                 </Form>
                 <Typography.Paragraph className="mb-0 mt-5 text-center">
-                    Уже зарегистрированы? <Link to="/login">Войти</Link>
+                    {t('alreadyRegistered')} <Link to="/login">{t('loginLink')}</Link>
                 </Typography.Paragraph>
             </Card>
         </main>

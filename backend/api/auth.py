@@ -77,14 +77,13 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db_session: As
     user: User = result.scalars().first()
 
     if not user:
-        return HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='User was not found'
         )
 
-    hashed_password = get_password_hash(password)
-    if not verify_password(password, hashed_password):
-        return HTTPException(
+    if not verify_password(password, user.hashed_password):
+        raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail='Wrong password'
         )
