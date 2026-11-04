@@ -17,7 +17,7 @@ export interface MarketTick {
 
 export type MarketConnectionStatus = 'disconnected' | 'connecting' | 'authenticating' | 'connected' | 'reconnecting' | 'error';
 
-const WS_URL = 'ws://localhost:8000/ticker/ws';
+const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://127.0.0.1:8000/ticker/ws';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;

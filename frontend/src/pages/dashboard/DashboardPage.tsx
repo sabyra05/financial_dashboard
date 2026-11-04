@@ -173,14 +173,14 @@ function DashboardPage() {
                     exchange: 'binance',
                 });
 
-                const response = await fetch(`http://127.0.0.1:8000/ticker/${encodeURIComponent(chartSymbol)}/raw?${query.toString()}`, {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/ticker/${encodeURIComponent(chartSymbol)}/raw?${query.toString()}`, {
                     headers: {
                         token,
                     },
                 });
 
                 if (!response.ok) {
-                    const details = `${t('loadRangeError')}: ${response.status}`;
+                    const details = `Ошибка загрузки диапазона: ${response.status}`;
                     if (!disposed) {
                         setCustomRangeData([]);
                         setCustomRangeError(details);
