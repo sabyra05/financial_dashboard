@@ -98,7 +98,7 @@ services:
     container_name: frtd_frontend
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - "8081:80"
     depends_on:
       web_api:
         condition: service_started
