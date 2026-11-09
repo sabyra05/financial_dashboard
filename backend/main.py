@@ -30,7 +30,11 @@ async def lifespan(app: FastAPI):
 
 origins = settings.ALLOWED_ORIGINS.split(',')
 
-app = FastAPI(title='Financial Real Time Dashboard', lifespan=lifespan)
+app = FastAPI(
+    title='Financial Real Time Dashboard',
+    lifespan=lifespan,
+    root_path="/api" if settings.IS_DEV == 'False' else '',
+)
 
 app.add_middleware(
     CORSMiddleware,
